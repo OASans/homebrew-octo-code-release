@@ -179,7 +179,17 @@ Click the agent name to rename it inline. The new name is saved to config automa
 | `sshCommand` | string | no | SSH connection command for remote agents |
 | `vscodeKeyword` | string | no | Match VSCode window title for focus button |
 
-## CLI Flags
+## CLI Subcommands & Flags
+
+| Flag | Description |
+|------|-------------|
+| Subcommand | Description |
+|------------|-------------|
+| `start` | Start a session (always runs in background) |
+| `stop` | Stop a session (with `--instance` to target specific session) |
+| `snapshot` | Dump current session state as JSON |
+
+Common flags for `start`:
 
 | Flag | Description |
 |------|-------------|
@@ -188,17 +198,15 @@ Click the agent name to rename it inline. The new name is saved to config automa
 | `-n, --agents <N>` | Use only the first N agents from config (1–8) |
 | `-r, --resume` | Resume previous SSH sessions instead of starting fresh |
 | `--debug` | Enable debug logging to files and show agent monitor panel |
-| `--detached` | Run in background without attaching to tmux |
 | `--no-audio` | Skip audio initialization (for testing) |
-| `--snapshot` | Dump current session state as JSON |
 
 ### Running Multiple Sessions
 
 Use `--instance` to run separate sessions side by side:
 
 ```bash
-octo-code --instance work
-octo-code --instance personal
+octo-code start --instance work
+octo-code start --instance personal
 ```
 
 Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) and can use a different config with `-c`.
