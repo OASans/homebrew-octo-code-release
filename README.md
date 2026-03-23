@@ -115,6 +115,35 @@ Edit `~/.octo-code/config.json` to customize your setup.
 
 When `sshCommand` is set, OctoCode connects via SSH first, then runs `startCommand` in the remote `projectPath`. SSH sessions auto-reconnect if the connection drops.
 
+#### Slack Integration
+
+OctoCode can forward permission requests and status updates to Slack, letting you approve tool use from your phone. This works for both local and remote SSH agents with the same setup — no scripts to copy, just paste the config below.
+
+Add the following to the global `~/.claude/settings.json` on each machine:
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [{
+      "hooks": [{
+        "type": "command",
+        "command": "{ printf 'OCTO:%s:PERMISSION_REQUEST\\n' \"$OCTO_AGENT_ID\"; cat; } | python3 -c \"import socket,sys,os;s=socket.socket(socket.AF_UNIX);s.connect(os.environ.get('OCTO_HOOK_SOCK',''));s.sendall(sys.stdin.buffer.read())\" 2>/dev/null || true"
+      }]
+    }]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "python3 -c \"\nimport sys,json,os,socket\nfrom datetime import datetime\nd=json.load(sys.stdin)\nraw=json.dumps(d)\ncw=d.get('context_window',{})\nco=d.get('cost',{})\npct=cw.get('used_percentage',0)\nsz=cw.get('context_window_size',0)\na=co.get('total_lines_added',0)\nr=co.get('total_lines_removed',0)\nszf=str(sz//1000)+'k' if sz>=1000 else str(sz)\nR='\\x1b[0m';B='\\x1b[1m';D='\\x1b[2m';G='\\x1b[32m';RE='\\x1b[31m'\ncc=lambda v:'\\x1b[31m' if v>=80 else '\\x1b[33m' if v>=50 else '\\x1b[36m'\no=D+'ctx:'+R+' '+cc(pct)+B+'%.0f%%'%pct+R+D+'/'+szf+R+'  '+D+'+'+R+G+str(a)+R+D+'/-'+R+RE+str(r)+R\nrl=d.get('rate_limits',{})\ndef rl_sec(key,lb):\n t=rl.get(key,{});p=t.get('used_percentage')\n if p is None:return ''\n s='  '+D+lb+':'+R+'  '+cc(p)+B+'%.0f%%'%p+R;ra=t.get('resets_at')\n if ra is not None:dt=datetime.fromtimestamp(ra);tf=dt.strftime('%H:%M') if lb=='5h' else dt.strftime('%a');s+=D+'\\u2192'+tf+R\n return s\no+=rl_sec('five_hour','5h')+rl_sec('seven_day','wk')\nprint(o,end='')\nsk=os.environ.get('OCTO_HOOK_SOCK','')\nif sk:\n try:s=socket.socket(socket.AF_UNIX);s.connect(sk);s.sendall(('OCTO:'+os.environ.get('OCTO_AGENT_ID','')+':STATUS\\n'+raw).encode());s.close()\n except Exception:pass\n\" 2>/dev/null || true"
+  }
+}
+```
+
+Both hooks are fully inline — no external scripts needed. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the `OCTO_AGENT_ID` and `OCTO_HOOK_SOCK` env vars are only set by OctoCode).
+
+The status line shows context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly session usage with reset times. Rate limit fields are omitted when unavailable (e.g., AWS Bedrock).
+
+A readable standalone version of the status line script is included as `statusline-octo.sh` for reference or customization.
+
 ### Hot Reload
 
 Press **Ctrl+R** to reload config without restarting. Changes to agent descriptions and VSCode keywords apply instantly. Changes to `startCommand`, `sshCommand`, or `projectPath` respawn the agent's pane. You can even add or remove agents on the fly.
@@ -165,7 +194,6 @@ Click the agent name to rename it inline. The new name is saved to config automa
 | `whisperModel` | string | `"large-v3-turbo"` | Whisper model for speech recognition |
 | `agentConfigs` | array | — | List of 1–8 agent configurations |
 | `autoMuteTimeoutSecs` | number or null | null | Auto-mute after N seconds of silence while recording |
-| `pauseMediaOnRecord` | boolean | true | Pause media playback during recording (macOS) |
 | `preStartHook` | string or null | null | Shell command to run before session starts (e.g. auth refresh) |
 | `sshKeepAliveInterval` | number | 60 | SSH keep-alive interval in seconds |
 
