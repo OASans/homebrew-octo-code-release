@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# Claude Code status line script with OctoCode remote hook forwarding.
+# Claude Code status line script with OctoCode file-based hook forwarding.
 #
 # Displays context window usage, code change stats, and optional rate limits
 # in the Claude Code status line. Forwards status data to OctoCode's Slack
-# bridge when OCTO_HOOK_SOCK is set.
+# bridge when OCTO_HOOK_FILE is set, writing JSONL lines to a shared file.
 #
 # No external dependencies (no jq, no bc) — only Python 3 standard library.
 #
@@ -16,15 +16,14 @@
 #     "command": "python3 ~/.claude/statusline-octo.sh"
 #   }
 #
-# The forwarding only activates when OCTO_HOOK_SOCK is set (automatically
-# exported by OctoCode in SSH agent sessions). Outside OctoCode, this
-# script works as a normal status line with no side effects.
+# The forwarding only activates when OCTO_HOOK_FILE is set (automatically
+# exported by OctoCode in agent sessions). Outside OctoCode, this script
+# works as a normal status line with no side effects.
 
-import sys, json, os, socket
+import sys, json, os, time
 from datetime import datetime
 
 d = json.load(sys.stdin)
-raw = json.dumps(d)
 
 # Context window fields
 cw = d.get('context_window', {})
@@ -69,14 +68,31 @@ def format_rate_limit(key, label):
 out += format_rate_limit('five_hour', '5h') + format_rate_limit('seven_day', 'wk')
 print(out, end='')
 
-# Forward status data to OctoCode bridge (fire-and-forget, no-op outside OctoCode)
-sk = os.environ.get('OCTO_HOOK_SOCK', '')
-if sk:
+# Forward status data to OctoCode via hook file (fire-and-forget, no-op outside OctoCode).
+# Uses 5% bucket filtering: only writes a new line when the context usage percentage
+# crosses a 5% threshold, reducing file I/O. A .pct sidecar file tracks the last
+# written bucket value.
+hook_file = os.environ.get('OCTO_HOOK_FILE', '')
+if hook_file:
+    bucket = int(used_pct // 5) * 5
+    sidecar = hook_file + '.pct'
+
+    # Read last written bucket from sidecar
     try:
-        s = socket.socket(socket.AF_UNIX)
-        s.connect(sk)
-        aid = os.environ.get('OCTO_AGENT_ID', '')
-        s.sendall(('OCTO:' + aid + ':STATUS\n' + raw).encode())
-        s.close()
+        last_bucket = int(open(sidecar).read())
     except Exception:
-        pass
+        last_bucket = -1
+
+    # Only write when bucket changes
+    if bucket != last_bucket:
+        aid = os.environ.get('OCTO_AGENT_ID', '')
+        line = json.dumps({'type': 'status', 'aid': aid, 'ts': int(time.time()), 'data': d})
+        open(hook_file, 'a').write(line + '\n')
+
+        # Update sidecar with current bucket
+        open(sidecar, 'w').write(str(bucket))
+
+        # Truncate hook file if it grows too large: keep last 30 lines when > 200
+        lines = open(hook_file).readlines()
+        if len(lines) > 200:
+            open(hook_file, 'w').writelines(lines[-30:])
