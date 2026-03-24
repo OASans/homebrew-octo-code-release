@@ -142,6 +142,37 @@ Both hooks use file-based delivery — each writes a JSONL line to the file spec
 
 The status line shows context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly session usage with reset times. Rate limit fields are omitted when unavailable (e.g., AWS Bedrock). Status updates use 5% bucket filtering to avoid excessive writes — a new line is only written when the context usage percentage crosses a 5% threshold.
 
+#### Approval Hook for Dangerous Commands
+
+Claude Code's `Bash(*)` permission allows all shell commands. To require confirmation for specific dangerous commands (like `rm` or `sudo`), add a `PreToolUse` hook to your project's `.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(*)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport sys,json\nd=json.load(sys.stdin)\nc=d.get('tool_input',{}).get('command','')\nw=c.strip().split()[0] if c.strip() else ''\nif w in sys.argv[1:]:\n json.dump({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'ask','permissionDecisionReason':w+' requires approval'}},sys.stdout)\n\" rm sudo kill pkill"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The commands listed at the end of the `command` string (`rm sudo kill pkill`) are the ones that trigger an approval prompt. To gate additional commands, just append them:
+
+```
+...\" rm sudo kill pkill chmod mv"
+```
+
 ### Hot Reload
 
 Press **Ctrl+R** to reload config without restarting. Changes to agent descriptions and VSCode keywords apply instantly. Changes to `startCommand`, `sshCommand`, or `projectPath` respawn the agent's pane. You can even add or remove agents on the fly.
