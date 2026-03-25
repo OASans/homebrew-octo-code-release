@@ -158,7 +158,7 @@ Claude Code's `Bash(*)` permission allows all shell commands. To require confirm
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"\nimport sys,json\nd=json.load(sys.stdin)\nc=d.get('tool_input',{}).get('command','')\nw=c.strip().split()[0] if c.strip() else ''\nif w in sys.argv[1:]:\n json.dump({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'ask','permissionDecisionReason':w+' requires approval'}},sys.stdout)\n\" rm sudo kill pkill"
+            "command": "python3 -c \"\nimport sys,json,os,re\nd=json.load(sys.stdin)\nc=d.get('tool_input',{}).get('command','')\nkws=sys.argv[1:]\ndef chk(t):\n for k in kws:\n  if re.search(r'\\b'+re.escape(k)+r'\\b',t):return k\nhit=chk(c)\nif not hit:\n for w in c.split():\n  p=w.strip(\\\"';\\\")\n  if p.endswith('.sh') and os.path.isfile(p):\n   try:\n    hit=chk(open(p).read())\n    if hit:break\n   except:pass\nif hit:\n json.dump({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'ask','permissionDecisionReason':hit+' requires approval'}},sys.stdout)\n\" rm sudo kill pkill"
           }
         ]
       }
@@ -167,7 +167,9 @@ Claude Code's `Bash(*)` permission allows all shell commands. To require confirm
 }
 ```
 
-The commands listed at the end of the `command` string (`rm sudo kill pkill`) are the ones that trigger an approval prompt. To gate additional commands, just append them:
+The hook checks two things: whether any keyword appears **anywhere** in the command (not just the first word), and whether any `.sh` file referenced in the command **contains** a keyword. This catches cases like `cd /tmp && rm -rf *` and shell scripts that wrap dangerous commands.
+
+The keywords listed at the end of the `command` string (`rm sudo kill pkill`) are the ones that trigger an approval prompt. To gate additional commands, just append them:
 
 ```
 ...\" rm sudo kill pkill chmod mv"
