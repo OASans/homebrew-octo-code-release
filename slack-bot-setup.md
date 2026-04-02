@@ -31,7 +31,8 @@ Go to https://api.slack.com/apps → **Create New App** → **From an app manife
         "chat:write",
         "reactions:read",
         "reactions:write",
-        "files:read"
+        "files:read",
+        "files:write"
       ]
     }
   },
