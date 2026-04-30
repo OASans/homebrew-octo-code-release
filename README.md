@@ -204,6 +204,25 @@ Run agents on remote machines. OctoCode connects via SSH, then runs your `startC
 
 When `sshCommand` is set, `projectPath` is required.
 
+#### Sharing remote tmux state across machines
+
+When the same project + agent names are configured on a powerful server (running OctoCode locally with full agents + Slack) and a laptop (SSHing out to the same server), both ends touch the same per-agent tmux sessions on the server. Use `octo-code start --remote` (`-r`) on whichever side starts second — instead of replacing the existing tmux state, it attaches to the running daemon.
+
+```sh
+# server (first):
+octo-code start --instance shared
+
+# laptop (second), with sshCommand pointing at the server:
+octo-code start --remote --instance shared
+```
+
+Behavior of `--remote`:
+- If a healthy daemon is already running for that instance, exit successfully without touching tmux state. Run `octo-code ui` to attach.
+- If no daemon (or only a stale PID file), spawn a fresh daemon **but skip remote SSH agent-session teardown** — the existing remote tmux sessions on the other side stay alive.
+- If a daemon process is alive but its IPC is unresponsive, error out and instruct you to run plain `octo-code start` (the destructive recovery path).
+
+When the daemon was started with `--remote`, the matching `octo-code stop` preserves the remote SSH agent sessions on teardown so the co-tenant daemon keeps working. Use `octo-code stop --force` (`-f`) to override and tear down everything.
+
 ### Slack Integration
 
 OctoCode can forward agent activity to Slack — permission requests, status updates, and notifications appear in per-agent channels. You can approve tool use directly from Slack (or your phone).
