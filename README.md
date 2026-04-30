@@ -468,11 +468,11 @@ Without a GPU, Whisper runs on CPU. The `large-v3-turbo` model benefits signific
 
 ## More Setup Guides
 
-The release archive ships with a `release-docs/` folder containing deeper setup walkthroughs:
+The release archive ships with a `release_docs/` folder containing deeper setup walkthroughs:
 
-- `release-docs/slack-bot-setup.md` — Step-by-step Slack app + manifest setup for the phone-control bridge.
-- `release-docs/gpu-acceleration.md` — Enabling CUDA/Metal for Whisper on your machine.
-- `release-docs/wsl2-audio.md` — PulseAudio + ALSA wiring for WSL2 microphone capture.
+- `release_docs/slack-bot-setup.md` — Step-by-step Slack app + manifest setup for the phone-control bridge.
+- `release_docs/gpu-acceleration.md` — Enabling CUDA/Metal for Whisper on your machine.
+- `release_docs/wsl2-audio.md` — PulseAudio + ALSA wiring for WSL2 microphone capture.
 
 ## License
 
