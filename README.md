@@ -118,7 +118,7 @@ Edit `~/.octo-code/config.json` to customize your setup. Press **Ctrl+R** to rel
 }
 ```
 
-Each tab supports up to 6 agents arranged in a 2x3 grid. Changes to `name` and `vscodeKeyword` apply instantly on reload. Changes to `startCommand`, `sshCommand`, or `projectPath` respawn the agent's pane.
+Each tab supports up to 3 agents in a single row. Changes to `name` apply instantly on reload. Changes to `startCommand`, `sshCommand`, or `projectPath` respawn the agent's pane.
 
 ## The Dashboard
 
@@ -134,13 +134,12 @@ The voice control dashboard shows:
 
 Each agent has a 2-row status bar at the top of its panel:
 
-**Row 1:** Activity signal, zoom button, VSCode button (if configured), agent name, init button.
+**Row 1:** Activity signal, zoom button, agent name, init button.
 **Row 2:** Working directory and current plan name (if detected).
 
 | Button | Action |
 |--------|--------|
 | **FULL/GRID** | Toggle zoom — maximize this agent's panel or return to grid |
-| **VS** | Focus the matching VSCode window (requires `vscodeKeyword` in config) |
 | **INIT** | Restart the agent's CLI pane (useful if an agent gets stuck) |
 
 Click the agent name to rename it inline. The new name is saved to config automatically.
@@ -360,6 +359,34 @@ Claude Code's `Bash(*)` permission allows all shell commands. To require confirm
 
 The hook checks whether any keyword appears in the command or in any `.sh` file it references. To gate additional commands, append them to the end: `\" rm sudo kill pkill chmod mv`.
 
+### Peer Messaging Skill (optional)
+
+Lets one agent send messages directly to another agent in the same session — useful when a client agent wants to delegate validation to a server-side agent without you copy-pasting between panes. This is opt-in: if the skill is not installed, agents simply can't send peer messages, and nothing fails.
+
+The skill is a self-contained Claude Code skill folder shipped in this release archive. Install it once per machine:
+
+```bash
+cp -r release/skills/octo-peer ~/.claude/skills/
+chmod +x ~/.claude/skills/octo-peer/peer.sh
+```
+
+For SSH-remote agents, run the same command on each remote host (the skill must live in `~/.claude/skills/octo-peer/` wherever Claude Code runs).
+
+To enable peer messaging between specific agents, add a `peers` field (and optionally a `description`) to your agent configs:
+
+```json
+{
+  "name": "frontend",
+  "startCommand": "claude",
+  "description": "Owns the React/TypeScript frontend.",
+  "peers": ["backend"]
+}
+```
+
+`peers` is auto-bidirectional: declaring `frontend.peers: ["backend"]` makes `backend` see `frontend` as a peer too. Agent names must match `^[a-zA-Z][a-zA-Z0-9_-]*$` (start with letter; then alphanumerics, underscore, or dash) and be unique within a session.
+
+Once installed and configured, agents can use the skill via `bash ~/.claude/skills/octo-peer/peer.sh {list|send <name> <msg>|send-with-callback <name> <msg>}`. See `~/.claude/skills/octo-peer/SKILL.md` for the full agent-facing documentation.
+
 ### Multiple Sessions
 
 Use `--instance` to run separate sessions side by side:
@@ -391,7 +418,7 @@ Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) 
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | string | Display name (must be unique, non-empty) |
-| `agentConfigs` | array | 1-6 agents per tab |
+| `agentConfigs` | array | 1-3 agents per tab |
 
 #### Agent
 
@@ -401,7 +428,6 @@ Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) 
 | `startCommand` | string | yes | Command to launch the agent |
 | `projectPath` | string | for SSH | Directory to start in |
 | `sshCommand` | string | no | SSH connection command for remote agents |
-| `vscodeKeyword` | string | no | Match VSCode window title for focus button |
 
 #### Slack (`remote.slack`)
 
@@ -441,7 +467,7 @@ Flags for `stop`, `status`, `ui`:
 
 ### Whisper Model
 
-OctoCode uses the `large-v3-turbo` Whisper model — a good balance of speed and accuracy on Apple Silicon. The model (~1.5 GB) is downloaded automatically on first run to `~/.octo-code/models/`.
+OctoCode uses the `distil-large-v3` Whisper model — English-only, optimized for streaming latency on Apple Silicon. The model (~1.5 GB) is downloaded automatically on first run to `~/.octo-code/models/`.
 
 ### GPU Acceleration
 
@@ -450,7 +476,7 @@ Whisper uses GPU automatically when available:
 - **macOS (Apple Silicon):** Metal — works out of the box, no setup needed.
 - **Linux / WSL2 (NVIDIA):** CUDA — requires NVIDIA driver 470.76+ and CUDA toolkit.
 
-Without a GPU, Whisper runs on CPU. The `large-v3-turbo` model benefits significantly from GPU acceleration.
+Without a GPU, Whisper runs on CPU. The `distil-large-v3` model benefits significantly from GPU acceleration.
 
 ## Troubleshooting
 
