@@ -323,12 +323,19 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
         "type": "command",
         "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'permission','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
       }]
+    }],
+    "PreToolUse": [{
+      "matcher": "AskUserQuestion",
+      "hooks": [{
+        "type": "command",
+        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'ask_user_question','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+      }]
     }]
   }
 }
 ```
 
-Both hooks use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env vars are only set by OctoCode).
+All three hooks use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env vars are only set by OctoCode). The `PreToolUse` matcher fires before Claude Code shows the multi-choice dialog so OctoCode can render it in Slack with sub-second latency.
 
 The status line shows context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times. Status updates use 5% bucket filtering to avoid excessive writes.
 
