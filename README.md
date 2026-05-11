@@ -345,12 +345,18 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
         "type": "command",
         "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'stop','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
       }]
+    }],
+    "UserPromptSubmit": [{
+      "hooks": [{
+        "type": "command",
+        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'user_prompt_submit','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+      }]
     }]
   }
 }
 ```
 
-The `hooks` entries (`PermissionRequest`, `PreToolUse`, `Stop`) use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env var is only set by OctoCode). The `PreToolUse` matchers fire before Claude Code shows the multi-choice dialog (`AskUserQuestion`) or the plan-ready dialog (`ExitPlanMode`) so OctoCode can render them in Slack with sub-second latency. The `Stop` hook fires when Claude finishes a response, triggering an `@`-mention in the agent's Slack channel so you get notified that the agent is idle and may need input.
+The `hooks` entries (`PermissionRequest`, `PreToolUse`, `Stop`, `UserPromptSubmit`) use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env var is only set by OctoCode). The `PreToolUse` matchers fire before Claude Code shows the multi-choice dialog (`AskUserQuestion`) or the plan-ready dialog (`ExitPlanMode`) so OctoCode can render them in Slack with sub-second latency. The `Stop` hook fires when Claude finishes a response, triggering an `@`-mention in the agent's Slack channel so you get notified that the agent is idle and may need input. The `UserPromptSubmit` hook fires when you submit a new prompt — OctoCode uses it to flip the agent's status signal to flashing-green so the dashboard reflects "this agent is now working" without waiting for screen output.
 
 The `statusLine` is local-only — it prints context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times directly inside the agent's shell. Nothing is forwarded to Slack.
 
