@@ -224,7 +224,7 @@ When the daemon was started with `--remote`, the matching `octo-code stop` prese
 
 ### Slack Integration
 
-OctoCode can forward agent activity to Slack — permission requests, status updates, and notifications appear in per-agent channels. You can approve tool use directly from Slack (or your phone).
+OctoCode can forward agent activity to Slack — permission requests and ask-user questions appear in per-agent channels. You can approve tool use directly from Slack (or your phone).
 
 #### 1. Create a Slack Workspace
 
@@ -307,7 +307,7 @@ Restart OctoCode and it will connect to Slack automatically.
 
 ### Claude Code Hooks
 
-These hooks let OctoCode display richer agent status and forward permission requests to Slack. They are **optional** — OctoCode works without them — but recommended for the full experience.
+These hooks let OctoCode show a context/cost status line in the agent's shell and forward permission requests + ask-user questions to Slack. They are **optional** — OctoCode works without them — but recommended for the full experience.
 
 Add the following to the **global** `~/.claude/settings.json` on each machine where agents run (including remote SSH hosts):
 
@@ -315,7 +315,7 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
 {
   "statusLine": {
     "type": "command",
-    "command": "python3 -c \"\nimport sys,json,os,time\nfrom datetime import datetime\nd=json.load(sys.stdin)\ncw=d.get('context_window',{})\nco=d.get('cost',{})\npct=cw.get('used_percentage',0)\nsz=cw.get('context_window_size',0)\na=co.get('total_lines_added',0)\nr=co.get('total_lines_removed',0)\nszf=str(sz//1000)+'k' if sz>=1000 else str(sz)\nR='\\x1b[0m';B='\\x1b[1m';D='\\x1b[2m';G='\\x1b[32m';RE='\\x1b[31m'\ncc=lambda v:'\\x1b[31m' if v>=80 else '\\x1b[33m' if v>=50 else '\\x1b[36m'\no=D+'ctx:'+R+' '+cc(pct)+B+'%.0f%%'%pct+R+D+'/'+szf+R+'  '+D+'+'+R+G+str(a)+R+D+'/-'+R+RE+str(r)+R\nrl=d.get('rate_limits',{})\ndef rl_sec(key,lb):\n t=rl.get(key,{});p=t.get('used_percentage')\n if p is None:return ''\n s='  '+D+lb+':'+R+'  '+cc(p)+B+'%.0f%%'%p+R;ra=t.get('resets_at')\n if ra is not None:dt=datetime.fromtimestamp(ra);tf=dt.strftime('%H:%M') if lb=='5h' else dt.strftime('%a');s+=D+'\\u2192'+tf+R\n return s\no+=rl_sec('five_hour','5h')+rl_sec('seven_day','wk')\nprint(o,end='')\nf=os.environ.get('OCTO_HOOK_FILE','')\nif f:\n bk=int(pct//5)*5\n sf=f+'.pct'\n try:lp=int(open(sf).read())\n except Exception:lp=-1\n if bk!=lp:\n  open(f,'a').write(json.dumps({'type':'status','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+'\\n')\n  open(sf,'w').write(str(bk))\n  ls=open(f).readlines()\n  if len(ls)>200:open(f,'w').writelines(ls[-30:])\n\" 2>/dev/null || true"
+    "command": "python3 -c \"\nimport sys,json\nfrom datetime import datetime\nd=json.load(sys.stdin)\ncw=d.get('context_window',{})\nco=d.get('cost',{})\npct=cw.get('used_percentage',0)\nsz=cw.get('context_window_size',0)\na=co.get('total_lines_added',0)\nr=co.get('total_lines_removed',0)\nszf=str(sz//1000)+'k' if sz>=1000 else str(sz)\nR='\\x1b[0m';B='\\x1b[1m';D='\\x1b[2m';G='\\x1b[32m';RE='\\x1b[31m'\ncc=lambda v:'\\x1b[31m' if v>=80 else '\\x1b[33m' if v>=50 else '\\x1b[36m'\no=D+'ctx:'+R+' '+cc(pct)+B+'%.0f%%'%pct+R+D+'/'+szf+R+'  '+D+'+'+R+G+str(a)+R+D+'/-'+R+RE+str(r)+R\nrl=d.get('rate_limits',{})\ndef rl_sec(key,lb):\n t=rl.get(key,{});p=t.get('used_percentage')\n if p is None:return ''\n s='  '+D+lb+':'+R+'  '+cc(p)+B+'%.0f%%'%p+R;ra=t.get('resets_at')\n if ra is not None:dt=datetime.fromtimestamp(ra);tf=dt.strftime('%H:%M') if lb=='5h' else dt.strftime('%a');s+=D+'\\u2192'+tf+R\n return s\no+=rl_sec('five_hour','5h')+rl_sec('seven_day','wk')\nprint(o,end='')\n\" 2>/dev/null || true"
   },
   "hooks": {
     "PermissionRequest": [{
@@ -324,20 +324,35 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
         "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'permission','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
       }]
     }],
-    "PreToolUse": [{
-      "matcher": "AskUserQuestion",
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [{
+          "type": "command",
+          "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'ask_user_question','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+        }]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [{
+          "type": "command",
+          "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'exit_plan_mode','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+        }]
+      }
+    ],
+    "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'ask_user_question','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'stop','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
       }]
     }]
   }
 }
 ```
 
-All three hooks use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env vars are only set by OctoCode). The `PreToolUse` matcher fires before Claude Code shows the multi-choice dialog so OctoCode can render it in Slack with sub-second latency.
+The `hooks` entries (`PermissionRequest`, `PreToolUse`, `Stop`) use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env var is only set by OctoCode). The `PreToolUse` matchers fire before Claude Code shows the multi-choice dialog (`AskUserQuestion`) or the plan-ready dialog (`ExitPlanMode`) so OctoCode can render them in Slack with sub-second latency. The `Stop` hook fires when Claude finishes a response, triggering an `@`-mention in the agent's Slack channel so you get notified that the agent is idle and may need input.
 
-The status line shows context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times. Status updates use 5% bucket filtering to avoid excessive writes.
+The `statusLine` is local-only — it prints context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times directly inside the agent's shell. Nothing is forwarded to Slack.
 
 ### Approval Hook for Dangerous Commands
 
