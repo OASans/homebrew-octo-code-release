@@ -321,7 +321,7 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
     "PermissionRequest": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'permission','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+        "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'permission','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
       }]
     }],
     "PreToolUse": [
@@ -329,27 +329,27 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
         "matcher": "AskUserQuestion",
         "hooks": [{
           "type": "command",
-          "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'ask_user_question','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+          "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'ask_user_question','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
         }]
       },
       {
         "matcher": "ExitPlanMode",
         "hooks": [{
           "type": "command",
-          "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'exit_plan_mode','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+          "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'exit_plan_mode','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
         }]
       }
     ],
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'stop','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+        "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'stop','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
       }]
     }],
     "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"import sys,json,os,time;f=os.environ.get('OCTO_HOOK_FILE','');d=json.load(sys.stdin);open(f,'a').write(json.dumps({'type':'user_prompt_submit','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)) if f else None\" 2>/dev/null || true"
+        "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'user_prompt_submit','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
       }]
     }]
   }
