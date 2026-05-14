@@ -321,42 +321,46 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
     "PermissionRequest": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'permission','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
+        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
       }]
     }],
-    "PreToolUse": [
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [{
-          "type": "command",
-          "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'ask_user_question','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
-        }]
-      },
-      {
-        "matcher": "ExitPlanMode",
-        "hooks": [{
-          "type": "command",
-          "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'exit_plan_mode','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
-        }]
-      }
-    ],
+    "PreToolUse": [{
+      "hooks": [{
+        "type": "command",
+        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
+      }]
+    }, {
+      "matcher": "AskUserQuestion|ExitPlanMode",
+      "hooks": [{
+        "type": "command",
+        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
+      }]
+    }],
+    "PostToolUse": [{
+      "hooks": [{
+        "type": "command",
+        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
+      }]
+    }],
     "Stop": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'stop','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
+        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
       }]
     }],
     "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",
-        "command": "python3 -c \"\nimport sys,json,os,time\nf=os.environ.get('OCTO_HOOK_FILE','')\nif not f: sys.exit(0)\nd=json.load(sys.stdin)\nfd=os.open(f,os.O_WRONLY|os.O_APPEND|os.O_CREAT,0o644)\nos.write(fd,(json.dumps({'type':'user_prompt_submit','aid':os.environ.get('OCTO_AGENT_ID',''),'ts':int(time.time()),'data':d})+chr(10)).encode())\nos.close(fd)\n\" 2>/dev/null || true"
+        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
       }]
     }]
   }
 }
 ```
 
-The `hooks` entries (`PermissionRequest`, `PreToolUse`, `Stop`, `UserPromptSubmit`) use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. This is a global setting that works automatically for all OctoCode agents and projects. When Claude Code runs outside OctoCode, the hooks silently no-op (the env var is only set by OctoCode). The `PreToolUse` matchers fire before Claude Code shows the multi-choice dialog (`AskUserQuestion`) or the plan-ready dialog (`ExitPlanMode`) so OctoCode can render them in Slack with sub-second latency. The `Stop` hook fires when Claude finishes a response, triggering an `@`-mention in the agent's Slack channel so you get notified that the agent is idle and may need input. The `UserPromptSubmit` hook fires when you submit a new prompt — OctoCode uses it to flip the agent's status signal to flashing-green so the dashboard reflects "this agent is now working" without waiting for screen output.
+The `hooks` entries (`PermissionRequest`, `PreToolUse`, `PostToolUse`, `Stop`, `UserPromptSubmit`) use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. The same shell one-liner (`flock + jq + >>`) is used for every event: `flock` (POSIX advisory lock on `$OCTO_HOOK_FILE.lock`) serializes against concurrent writers and the daemon's read+truncate poll cycle, making the append race-free at any payload size; `jq` adds the writer's `OCTO_AGENT_ID` to the raw Claude Code stdin so the daemon can route the line to the right agent. When Claude Code runs outside OctoCode, the hooks silently no-op (the `OCTO_HOOK_FILE` env var is only set by OctoCode). The matcherless `PreToolUse` and `PostToolUse` entries fire on every tool call — OctoCode uses them to flip the agent's status signal to flashing-green after a permission approval (which Claude Code doesn't surface as a hook event), so the dashboard returns to "working" the moment the next tool runs. The second `PreToolUse` entry (matcher `AskUserQuestion|ExitPlanMode`) carries the rich payload OctoCode renders in Slack with sub-second latency. The `Stop` hook fires when Claude finishes a response, triggering an `@`-mention in the agent's Slack channel so you get notified that the agent is idle and may need input. The `UserPromptSubmit` hook fires when you submit a new prompt — OctoCode uses it to flip the agent's status signal to flashing-green so the dashboard reflects "this agent is now working" without waiting for screen output.
+
+**Dependencies on the agent host (local Mac + every remote SSH host):** the hook command needs `flock` and `jq` on `PATH`. Linux distros ship `flock` in util-linux and `jq` in their default package manager. macOS users install both via Homebrew (`brew install flock jq`); OctoCode's `scripts/install_dependencies.sh` does this automatically.
 
 The `statusLine` is local-only — it prints context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times directly inside the agent's shell. Nothing is forwarded to Slack.
 
