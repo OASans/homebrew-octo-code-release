@@ -5,6 +5,7 @@ class OctoCode < Formula
   license "MIT"
 
   depends_on "ffmpeg"
+  depends_on "flock"
   depends_on "tmux"
   depends_on arch: :arm64
   depends_on :macos
