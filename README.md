@@ -391,18 +391,9 @@ Claude Code's `Bash(*)` permission allows all shell commands. To require confirm
 
 The hook checks whether any keyword appears in the command or in any `.sh` file it references. To gate additional commands, append them to the end: `\" rm sudo kill pkill chmod mv`.
 
-### Peer Messaging Skill (optional)
+### Peer Messaging
 
-Lets one agent send messages directly to another agent in the same session — useful when a client agent wants to delegate validation to a server-side agent without you copy-pasting between panes. This is opt-in: if the skill is not installed, agents simply can't send peer messages, and nothing fails.
-
-The skill is a self-contained Claude Code skill folder shipped in this release archive. Install it once per machine:
-
-```bash
-cp -r release/skills/octo-peer ~/.claude/skills/
-chmod +x ~/.claude/skills/octo-peer/peer.sh
-```
-
-For SSH-remote agents, run the same command on each remote host (the skill must live in `~/.claude/skills/octo-peer/` wherever Claude Code runs).
+Lets one agent send messages directly to another agent in the same session — useful when a client agent wants to delegate validation to a server-side agent without you copy-pasting between panes. OctoCode delivers the helper script automatically to `~/.octo-code/bin/peer.sh` at startup (and pushes it to each SSH host on first tick), so no per-machine install step is needed.
 
 To enable peer messaging between specific agents, add a `peers` field (and optionally a `description`) to your agent configs:
 
@@ -417,7 +408,7 @@ To enable peer messaging between specific agents, add a `peers` field (and optio
 
 `peers` is auto-bidirectional: declaring `frontend.peers: ["backend"]` makes `backend` see `frontend` as a peer too. Agent names must match `^[a-zA-Z][a-zA-Z0-9_-]*$` (start with letter; then alphanumerics, underscore, or dash) and be unique within a session.
 
-Once installed and configured, agents can use the skill via `bash ~/.claude/skills/octo-peer/peer.sh {list|send <name> <msg>|send-with-callback <name> <msg>}`. See `~/.claude/skills/octo-peer/SKILL.md` for the full agent-facing documentation.
+Agents invoke the helper via `bash ~/.octo-code/bin/peer.sh {list|status <name>|last_action <name>|recap <name>|send <name> <msg>|send-with-callback <name> <msg>}`. Run `bash ~/.octo-code/bin/peer.sh help` for the full verb reference.
 
 ### Multiple Sessions
 
