@@ -11,7 +11,7 @@ class OctoCode < Formula
   depends_on :macos
 
   url "https://github.com/OASans/homebrew-octo-code-release/releases/download/v0.1.671/octo-code-0.1.671-aarch64-apple-darwin.tar.gz"
-  sha256 "2d57c00b8d425841ecb1dbef43ed8098551b6e9e031ef65e5cce83b78ed909ec"
+  sha256 "5c46aee31f8607420f86c79bdca704c5bc2be8f4a109a8218e7a512b2f5184fd"
 
   def install
     bin.install "octo-code"
