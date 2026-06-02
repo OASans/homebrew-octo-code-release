@@ -391,25 +391,6 @@ Claude Code's `Bash(*)` permission allows all shell commands. To require confirm
 
 The hook checks whether any keyword appears in the command or in any `.sh` file it references. To gate additional commands, append them to the end: `\" rm sudo kill pkill chmod mv`.
 
-### Peer Messaging
-
-Lets one agent send messages directly to another agent in the same session — useful when a client agent wants to delegate validation to a server-side agent without you copy-pasting between panes. OctoCode delivers the helper script automatically to `~/.octo-code/bin/peer.sh` at startup (and pushes it to each SSH host on first tick), so no per-machine install step is needed.
-
-To enable peer messaging between specific agents, add a `peers` field (and optionally a `description`) to your agent configs:
-
-```json
-{
-  "name": "frontend",
-  "startCommand": "claude",
-  "description": "Owns the React/TypeScript frontend.",
-  "peers": ["backend"]
-}
-```
-
-`peers` is auto-bidirectional: declaring `frontend.peers: ["backend"]` makes `backend` see `frontend` as a peer too. Agent names must match `^[a-zA-Z][a-zA-Z0-9_-]*$` (start with letter; then alphanumerics, underscore, or dash) and be unique within a session.
-
-Agents invoke the helper via `bash ~/.octo-code/bin/peer.sh {list|status <name>|last_action <name>|recap <name>|send <name> <msg>|send-with-callback <name> <msg>}`. Run `bash ~/.octo-code/bin/peer.sh help` for the full verb reference.
-
 ### Multiple Sessions
 
 Use `--instance` to run separate sessions side by side:
@@ -447,10 +428,11 @@ Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) 
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | yes | Label shown in status bar |
+| `name` | string | yes | Label shown in status bar. Must match `^[a-zA-Z][a-zA-Z0-9_-]*$` and be unique within a session |
 | `startCommand` | string | yes | Command to launch the agent |
 | `projectPath` | string | for SSH | Directory to start in |
 | `sshCommand` | string | no | SSH connection command for remote agents |
+| `description` | string | no | Single-line role description. Used as the Slack channel name (when Slack is enabled) and surfaced to the assistant agent |
 
 #### Slack (`remote.slack`)
 
