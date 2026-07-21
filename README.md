@@ -41,8 +41,7 @@ That's the core loop: select agent, speak, send.
 OctoCode runs as a background daemon. Here are the commands you'll use:
 
 ```bash
-octo-code start                  # Start a new session (opens TUI automatically)
-octo-code ui                     # Reattach TUI to a running session
+octo-code start                  # Start a session and attach its TUI (also reattaches a running one)
 octo-code status                 # Check if a session is running
 octo-code stop                   # Stop the daemon, but keep your agent panels alive
 octo-code q                      # Full teardown: stop + kill every tmux panel (alias: oc kill)
@@ -221,7 +220,7 @@ octo-code start --remote --instance shared
 ```
 
 Behavior of `--remote`:
-- If a healthy daemon is already running for that instance, exit successfully without touching tmux state. Run `octo-code ui` to attach.
+- If a healthy daemon is already running for that instance, attach its TUI without touching tmux state (no daemon restart).
 - If no daemon (or only a stale PID file), spawn a fresh daemon. As with a plain `start`, the existing local and remote agent tmux sessions are preserved (only the dashboard is rebuilt) — so the other side's remote tmux stays alive either way.
 - If a daemon process is alive but its IPC is unresponsive, error out and instruct you to run plain `octo-code start` to force a clean daemon restart (or `octo-code q` for a full teardown of every panel).
 
@@ -470,11 +469,10 @@ octo-code <subcommand> [options]
 
 | Subcommand | Description |
 |------------|-------------|
-| `start` | Start a new session (runs in background, opens TUI) |
+| `start` | Start a session (runs the daemon in the background) and attach its TUI; also reattaches a running session |
 | `stop` | Stop the daemon, keeping agent panels alive for reconnect |
 | `q` (alias: `kill`) | Full teardown: stop + kill every tmux panel for the instance |
 | `status` (alias: `ps`) | Check if a session is running |
-| `ui` | Reattach TUI to a running session |
 
 Flags for `start`:
 
@@ -483,9 +481,9 @@ Flags for `start`:
 | `-c, --config <FILE>` | Config file path (default: `~/.octo-code/config.json`) |
 | `--instance <ID>` | Session name — tmux session becomes `octo-code-<ID>` |
 | `--no-audio` | Skip audio initialization (for testing) |
-| `--debug` | Enable debug logging |
+| `--no-ui` | Launch the daemon only, without attaching this terminal's TUI (for testing) |
 
-Flags for `stop`, `status`, `ui`:
+Flags for `stop`, `status`:
 
 | Flag | Description |
 |------|-------------|
