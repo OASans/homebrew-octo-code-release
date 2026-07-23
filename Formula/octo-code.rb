@@ -1,7 +1,7 @@
 class OctoCode < Formula
   desc "Voice-driven multi-agent development environment"
   homepage "https://github.com/OASans/homebrew-octo-code-release"
-  version "0.1.719"
+  version "0.1.720"
   license "MIT"
 
   depends_on "ffmpeg"
@@ -10,8 +10,8 @@ class OctoCode < Formula
   depends_on arch: :arm64
   depends_on :macos
 
-  url "https://github.com/OASans/homebrew-octo-code-release/releases/download/v0.1.719/octo-code-0.1.719-aarch64-apple-darwin.tar.gz"
-  sha256 "3eed18cf319f4bfea3a3b946055731b9ba78e507170494d54cfaf4108774eed5"
+  url "https://github.com/OASans/homebrew-octo-code-release/releases/download/v0.1.720/octo-code-0.1.720-aarch64-apple-darwin.tar.gz"
+  sha256 "bf49bf289184aba94dc93f72f7c884ab630f735fc58a1bea61491a08f3923590"
 
   def install
     bin.install "octo-code"
