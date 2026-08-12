@@ -131,7 +131,7 @@ The voice control dashboard shows:
 - **Agent monitor** — grid of all agents with activity indicators. Green pulse = working, dim = idle. Click to select.
 - **Button bar** — Clear (F9), Undo (Ctrl+Z), Redo (Ctrl+Y), Reload (Ctrl+R), Quit (Ctrl+Q). All clickable.
 - **Pending command** — editable text area where voice transcripts appear before sending.
-- **Notifications** — status messages (config reloaded, SSH reconnected, errors).
+- **In-dashboard status messages** — agent initialization, SSH reconnects, and errors; these are not operating-system notifications.
 - **System metrics** — audio device status, CPU/memory, IPC health, SSH health.
 
 ## Agent Status Bar
@@ -207,111 +207,22 @@ Run agents on remote machines. OctoCode connects via SSH, then runs your `startC
 
 When `sshCommand` is set, `projectPath` is required.
 
-#### Sharing remote tmux state across machines
+#### Share remote tmux state across machines
 
-When the same project + agent names are configured on a powerful server (running OctoCode locally with full agents + Slack) and a laptop (SSHing out to the same server), both ends touch the same per-agent tmux sessions on the server. Use `octo-code start --remote` (`-r`) on whichever side starts second — instead of replacing the existing tmux state, it attaches to the running daemon.
-
-```sh
-# server (first):
-octo-code start --instance shared
-
-# laptop (second), with sshCommand pointing at the server:
-octo-code start --remote --instance shared
-```
-
-Behavior of `--remote`:
-- If a healthy daemon is already running for that instance, attach its TUI without touching tmux state (no daemon restart).
-- If no daemon (or only a stale PID file), spawn a fresh daemon. As with a plain `start`, the existing local and remote agent tmux sessions are preserved (only the dashboard is rebuilt) — so the other side's remote tmux stays alive either way.
-- If a daemon process is alive but its IPC is unresponsive, error out and instruct you to run plain `octo-code start` to force a clean daemon restart (or `octo-code q` for a full teardown of every panel).
-
-`octo-code stop` always preserves the local and remote agent tmux panels (only the daemon is stopped), so a co-tenant `--remote` daemon keeps working and you can reconnect with a later `start`. Use `octo-code q` (or `oc kill`) when you want to tear everything down.
-
-### Slack Integration
-
-OctoCode can forward agent activity to Slack — permission requests and ask-user questions appear in per-agent channels. You can approve tool use directly from Slack (or your phone).
-
-#### 1. Create a Slack Workspace
-
-Go to https://slack.com/get-started#/createnew — any free workspace works.
-
-#### 2. Create the OctoCode Slack App
-
-Go to https://api.slack.com/apps, click **Create New App** > **From an app manifest**, select your workspace, switch to the **JSON** tab, and paste:
+When a laptop and server use the same instance and remote agent sessions, set `sharedRemoteAgents` to `true` in the configuration of the instance that joins the existing session:
 
 ```json
 {
-  "display_information": {
-    "name": "OctoCode",
-    "description": "Voice-driven multi-agent dev environment"
-  },
-  "features": {
-    "bot_user": {
-      "display_name": "OctoCode",
-      "always_online": false
-    }
-  },
-  "oauth_config": {
-    "scopes": {
-      "bot": [
-        "channels:manage",
-        "channels:join",
-        "channels:read",
-        "channels:history",
-        "groups:history",
-        "chat:write",
-        "reactions:read",
-        "reactions:write",
-        "files:read",
-        "files:write"
-      ]
-    }
-  },
-  "settings": {
-    "event_subscriptions": {
-      "bot_events": [
-        "message.channels",
-        "message.groups",
-        "reaction_added"
-      ]
-    },
-    "socket_mode_enabled": true,
-    "org_deploy_enabled": false,
-    "token_rotation_enabled": false
-  }
+  "sharedRemoteAgents": true,
+  "tabs": [ ... ]
 }
 ```
 
-Click **Create**, then **Install to Workspace**, and collect two tokens:
-
-1. **OAuth & Permissions** page > copy **Bot User OAuth Token** (`xoxb-...`)
-2. **Basic Information** page > **App-Level Tokens** > **Generate Token and Scopes** > add scope `connections:write` > **Generate** > copy the token (`xapp-...`)
-
-#### 3. Get Your Slack User ID
-
-In Slack: click your avatar > **Profile** > click the **...** menu > **Copy member ID**.
-
-#### 4. Add Slack Config
-
-Add the `remote` block to your `~/.octo-code/config.json`:
-
-```json
-{
-  "tabs": [ ... ],
-  "remote": {
-    "slack": {
-      "botToken": "xoxb-...",
-      "appToken": "xapp-...",
-      "ownerUserId": "U0..."
-    }
-  }
-}
-```
-
-Restart OctoCode and it will connect to Slack automatically.
+With this setting, `octo-code start` attaches to a healthy daemon for that instance instead of replacing it. If no daemon exists, it starts one normally; if the existing daemon is unresponsive, set `sharedRemoteAgents` to `false` and start again to force a clean restart. `octo-code stop` preserves all agent tmux panels, while `octo-code q` (or `oc kill`) fully tears down the instance.
 
 ### Claude Code Hooks
 
-These hooks let OctoCode show a context/cost status line in the agent's shell and forward permission requests + ask-user questions to Slack. They are **optional** — OctoCode works without them — but recommended for the full experience.
+These hooks provide a context/cost status line in the agent's shell and keep the dashboard's agent state current. They are **optional** — OctoCode works without them — but recommended for the full experience.
 
 Add the following to the **global** `~/.claude/settings.json` on each machine where agents run (including remote SSH hosts):
 
@@ -375,11 +286,11 @@ Add the following to the **global** `~/.claude/settings.json` on each machine wh
 }
 ```
 
-The `hooks` entries (`PermissionRequest`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit`) use file-based delivery — each writes a JSONL line to the file specified by `OCTO_HOOK_FILE`. The same shell one-liner (`flock + jq + >>`) is used for every event: `flock` (POSIX advisory lock on `$OCTO_HOOK_FILE.lock`) serializes against concurrent writers and the daemon's read+truncate poll cycle, making the append race-free at any payload size; `jq` adds the writer's `OCTO_AGENT_ID` to the raw Claude Code stdin so the daemon can route the line to the right agent. When Claude Code runs outside OctoCode, the hooks silently no-op (the `OCTO_HOOK_FILE` env var is only set by OctoCode). The matcherless `PreToolUse` and `PostToolUse` entries fire on every tool call — OctoCode uses them to flip the agent's status signal to flashing-green after a permission approval (which Claude Code doesn't surface as a hook event), so the dashboard returns to "working" the moment the next tool runs. The second `PreToolUse` entry (matcher `AskUserQuestion|ExitPlanMode`) carries the rich payload OctoCode renders in Slack with sub-second latency. The `Notification` hook is the **permission-prompt safety net**: Claude Code does **not** fire `PermissionRequest` when a tool's prompt is raised by a `PreToolUse` hook returning `permissionDecision:"ask"` (the rm/sudo gate below, or a skill gate) — the hook-driven "ask" path and the rule-based path are separate. Without `Notification`, such a prompt leaves the agent stuck flashing-green (the matcherless `PreToolUse` already marked it "working") while it is genuinely parked. OctoCode reads the permission `Notification` (its `message` mentions "permission") and raises the red `need_input` signal; it is signal-only (no Slack dialog — that arrives via a real or synthetic `PermissionRequest`), and the `need_input` edge is idempotent, so a `Notification` and a `PermissionRequest` for the same prompt collapse to exactly one red signal. The `Stop` hook fires when Claude finishes a response, triggering an `@`-mention in the agent's Slack channel so you get notified that the agent is idle and may need input. A `Stop` is dropped when the agent is not actually parked for input, in two cases. First, when it carries a still-running entry in `background_tasks`: spawning a **backgrounded** subagent (or shell/workflow/monitor) ends the turn immediately, but the agent is woken again the moment that task finishes — routing this `Stop` is what made an agent flash red seconds after delegating work. Second, when it is stamped with `agent_id`, marking it as fired inside a subagent rather than on the main agent's turn (Codex emits this shape). Only `Stop` is filtered this way; a subagent's tool calls still keep the agent flashing-green, and the turn-final `Stop` — the one with no live background task — still raises the red signal. The `StopFailure` hook (matched to `overloaded`) fires when an agent's turn dies on an API overload (HTTP 529) — a distinct event from `Stop`, which only fires on a clean finish, so without this entry a 529 death raises no signal at all. OctoCode turns it into a red `need_input` signal: a 529 kills the turn but leaves the agent alive at its prompt, so a single `continue` resumes it. The `UserPromptSubmit` hook fires when you submit a new prompt — OctoCode uses it to flip the agent's status signal to flashing-green so the dashboard reflects "this agent is now working" without waiting for screen output.
+The `hooks` entries (`PermissionRequest`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit`) use file-based delivery: each writes a JSONL line to `OCTO_HOOK_FILE`. The shared `flock + jq + >>` command serializes concurrent writers and adds `OCTO_AGENT_ID` so the daemon can update the correct agent. Outside OctoCode, the hooks silently no-op because `OCTO_HOOK_FILE` is unset. Tool-use events mark an agent working; permission requests, ask-user questions, plan exits, a completed turn, and overload failures mark it as needing input. The Claude Code `Notification` hook is an event name, not a macOS or operating-system banner: OctoCode keeps only permission notifications and uses them to mark the agent as needing input. Stops from subagents or turns with live background work are ignored because the main agent is still active or will resume.
 
 **Dependencies on the agent host (local Mac + every remote SSH host):** the hook command needs `flock` and `jq` on `PATH`. Linux distros ship `flock` in util-linux and `jq` in their default package manager. macOS users install both via Homebrew (`brew install flock jq`); OctoCode's `scripts/install_dependencies.sh` does this automatically.
 
-The `statusLine` is local-only — it prints context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times directly inside the agent's shell. Nothing is forwarded to Slack.
+The `statusLine` is local-only — it prints context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times directly inside the agent's shell.
 
 ### Approval Hook for Dangerous Commands
 
@@ -434,7 +345,9 @@ Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) 
 | `tabs` | array | *(required)* | Tabbed agent groups (at least 1 required) |
 | `noAudio` | bool | `false` | Skip audio/whisper/VAD initialization |
 | `debug` | bool | `false` | Enable debug mode with file logging |
-| `remote` | object | `null` | Remote bridge config (see Slack Integration) |
+| `sharedRemoteAgents` | bool | `false` | Attach to a healthy daemon for the same instance instead of replacing it when remote agent sessions are shared |
+| `prevFinalCarryChars` | integer | `0` | Characters from the previous final transcript used to seed the next transcription; `0` disables carry-over |
+| `commandSuffix` | string | `""` | Text appended to dashboard commands; slash and bang commands are sent unchanged |
 
 #### Tab
 
@@ -451,14 +364,6 @@ Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) 
 | `startCommand` | string | yes | Command to launch the agent |
 | `projectPath` | string | for SSH | Directory to start in |
 | `sshCommand` | string | no | SSH connection command for remote agents |
-
-#### Slack (`remote.slack`)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `botToken` | string | Bot User OAuth Token (`xoxb-...`) |
-| `appToken` | string | App-Level Token (`xapp-...`) |
-| `ownerUserId` | string | Your Slack user ID for auto-invite to channels |
 
 ### CLI Reference
 
@@ -519,7 +424,6 @@ Without a GPU, Whisper runs on CPU. The `distil-large-v3` model benefits signifi
 
 The release archive ships with a `release_docs/` folder containing deeper setup walkthroughs:
 
-- `release_docs/slack-bot-setup.md` — Step-by-step Slack app + manifest setup for the phone-control bridge.
 - `release_docs/gpu-acceleration.md` — Enabling CUDA/Metal for Whisper on your machine.
 - `release_docs/wsl2-audio.md` — PulseAudio + ALSA wiring for WSL2 microphone capture.
 
