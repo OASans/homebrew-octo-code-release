@@ -20,6 +20,6 @@ class OctoCode < Formula
   end
 
   test do
-    system "#{bin}/octo-code", "--version"
+    system "#{bin}/octo-code", "--help"
   end
 end
