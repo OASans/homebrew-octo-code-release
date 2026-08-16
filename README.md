@@ -2,7 +2,7 @@
 
 Run multiple AI coding agents side by side and control them all with your voice.
 
-OctoCode is a terminal-based environment that manages multiple AI coding agents (like Claude Code) in a single tmux session. You speak commands, OctoCode transcribes them with Whisper, and sends them to the agent you're looking at.
+OctoCode is a terminal-based environment that manages multiple OpenAI Codex CLI agents in a single tmux session. You speak commands, OctoCode transcribes them with Whisper, and sends them to the agent you're looking at.
 
 ## Install
 
@@ -11,7 +11,7 @@ brew tap OASans/octo-code-release
 brew install octo-code
 ```
 
-Requirements: **macOS on Apple Silicon**, **tmux** (installed automatically by Homebrew), and a working AI coding agent (e.g. [Claude Code](https://docs.anthropic.com/en/docs/claude-code)).
+Requirements: **macOS on Apple Silicon**, **tmux** (installed automatically by Homebrew), and the [OpenAI Codex CLI](https://developers.openai.com/codex/cli/) installed and signed in.
 
 ## Quick Start
 
@@ -90,7 +90,7 @@ Edit `~/.octo-code/config.json` to customize your setup. Press **Ctrl+R** to rel
       "agentConfigs": [
         {
           "name": "my project",
-          "startCommand": "claude"
+          "startCommand": "codex"
         }
       ]
     }
@@ -108,12 +108,12 @@ Edit `~/.octo-code/config.json` to customize your setup. Press **Ctrl+R** to rel
       "agentConfigs": [
         {
           "name": "frontend",
-          "startCommand": "claude",
+          "startCommand": "codex",
           "projectPath": "/home/user/frontend"
         },
         {
           "name": "backend",
-          "startCommand": "claude --permission-mode plan",
+          "startCommand": "codex --full-auto",
           "projectPath": "/home/user/backend"
         }
       ]
@@ -178,14 +178,14 @@ Organize agents into tabs when you have more than a few. Each tab is its own gri
     {
       "name": "frontend",
       "agentConfigs": [
-        { "name": "react app", "startCommand": "claude", "projectPath": "/home/user/frontend" }
+        { "name": "react app", "startCommand": "codex", "projectPath": "/home/user/frontend" }
       ]
     },
     {
       "name": "backend",
       "agentConfigs": [
-        { "name": "api server", "startCommand": "claude", "projectPath": "/home/user/backend" },
-        { "name": "worker", "startCommand": "claude", "projectPath": "/home/user/worker" }
+        { "name": "api server", "startCommand": "codex", "projectPath": "/home/user/backend" },
+        { "name": "worker", "startCommand": "codex", "projectPath": "/home/user/worker" }
       ]
     }
   ]
@@ -199,7 +199,7 @@ Run agents on remote machines. OctoCode connects via SSH, then runs your `startC
 ```json
 {
   "name": "gpu server",
-  "startCommand": "claude",
+  "startCommand": "codex",
   "sshCommand": "ssh user@gpu-server.example.com",
   "projectPath": "/home/user/ml-training"
 }
@@ -220,106 +220,9 @@ When a laptop and server use the same instance and remote agent sessions, set `s
 
 With this setting, `octo-code start` attaches to a healthy daemon for that instance instead of replacing it. If no daemon exists, it starts one normally; if the existing daemon is unresponsive, set `sharedRemoteAgents` to `false` and start again to force a clean restart. `octo-code stop` preserves all agent tmux panels, while `octo-code q` (or `oc kill`) fully tears down the instance.
 
-### Claude Code Hooks
+### Agent Status
 
-These hooks provide a context/cost status line in the agent's shell and keep the dashboard's agent state current. They are **optional** — OctoCode works without them — but recommended for the full experience.
-
-Add the following to the **global** `~/.claude/settings.json` on each machine where agents run (including remote SSH hosts):
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "python3 -c \"\nimport sys,json\nfrom datetime import datetime\nd=json.load(sys.stdin)\ncw=d.get('context_window',{})\nco=d.get('cost',{})\npct=cw.get('used_percentage',0)\nsz=cw.get('context_window_size',0)\na=co.get('total_lines_added',0)\nr=co.get('total_lines_removed',0)\nszf=str(sz//1000)+'k' if sz>=1000 else str(sz)\nR='\\x1b[0m';B='\\x1b[1m';D='\\x1b[2m';G='\\x1b[32m';RE='\\x1b[31m'\ncc=lambda v:'\\x1b[31m' if v>=80 else '\\x1b[33m' if v>=50 else '\\x1b[36m'\no=D+'ctx:'+R+' '+cc(pct)+B+'%.0f%%'%pct+R+D+'/'+szf+R+'  '+D+'+'+R+G+str(a)+R+D+'/-'+R+RE+str(r)+R\nrl=d.get('rate_limits',{})\ndef rl_sec(key,lb):\n t=rl.get(key,{});p=t.get('used_percentage')\n if p is None:return ''\n s='  '+D+lb+':'+R+'  '+cc(p)+B+'%.0f%%'%p+R;ra=t.get('resets_at')\n if ra is not None:dt=datetime.fromtimestamp(ra);tf=dt.strftime('%H:%M') if lb=='5h' else dt.strftime('%a');s+=D+'\\u2192'+tf+R\n return s\no+=rl_sec('five_hour','5h')+rl_sec('seven_day','wk')\nprint(o,end='')\n\" 2>/dev/null || true"
-  },
-  "hooks": {
-    "PermissionRequest": [{
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }],
-    "PreToolUse": [{
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }, {
-      "matcher": "AskUserQuestion|ExitPlanMode",
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }],
-    "PostToolUse": [{
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }],
-    "Notification": [{
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }],
-    "Stop": [{
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }],
-    "StopFailure": [{
-      "matcher": "overloaded",
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "( flock -x -w 5 9; jq -c --arg aid \"$OCTO_AGENT_ID\" '. + {aid:$aid}' >> \"$OCTO_HOOK_FILE\" ) 9>\"$OCTO_HOOK_FILE.lock\" 2>/dev/null || true"
-      }]
-    }]
-  }
-}
-```
-
-The `hooks` entries (`PermissionRequest`, `PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit`) use file-based delivery: each writes a JSONL line to `OCTO_HOOK_FILE`. The shared `flock + jq + >>` command serializes concurrent writers and adds `OCTO_AGENT_ID` so the daemon can update the correct agent. Outside OctoCode, the hooks silently no-op because `OCTO_HOOK_FILE` is unset. Tool-use events mark an agent working; permission requests, ask-user questions, plan exits, a completed turn, and overload failures mark it as needing input. The Claude Code `Notification` hook is an event name, not a macOS or operating-system banner: OctoCode keeps only permission notifications and uses them to mark the agent as needing input. Stops from subagents or turns with live background work are ignored because the main agent is still active or will resume.
-
-**Dependencies on the agent host (local Mac + every remote SSH host):** the hook command needs `flock` and `jq` on `PATH`. Linux distros ship `flock` in util-linux and `jq` in their default package manager. macOS users install both via Homebrew (`brew install flock jq`); OctoCode's `scripts/install_dependencies.sh` does this automatically.
-
-The `statusLine` is local-only — it prints context usage, lines changed, and (for Claude.ai subscribers) 5-hour and weekly rate limit usage with reset times directly inside the agent's shell.
-
-### Approval Hook for Dangerous Commands
-
-Claude Code's `Bash(*)` permission allows all shell commands. To require confirmation for specific dangerous commands (like `rm` or `sudo`), add a `PreToolUse` hook to your **project's** `.claude/settings.json`:
-
-```json
-{
-  "permissions": {
-    "allow": ["Bash(*)"]
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"\nimport sys,json,os,re\nd=json.load(sys.stdin)\nc=d.get('tool_input',{}).get('command','')\nkws=sys.argv[1:]\ndef chk(t):\n for k in kws:\n  if re.search(r'\\b'+re.escape(k)+r'\\b',t):return k\nhit=chk(c)\nif not hit:\n for w in c.split():\n  p=w.strip(\\\"';\\\")\n  if p.endswith('.sh') and os.path.isfile(p):\n   try:\n    hit=chk(open(p).read())\n    if hit:break\n   except:pass\nif hit:\n hf=os.environ.get('OCTO_HOOK_FILE')\n if hf:\n  import fcntl\n  try:\n   g=open(hf,'a')\n   fcntl.flock(g,fcntl.LOCK_EX)\n   g.write(json.dumps({'aid':os.environ.get('OCTO_AGENT_ID',''),'hook_event_name':'PermissionRequest','tool_name':'Bash','tool_input':{'command':c}})+chr(10))\n   g.close()\n  except:pass\n json.dump({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'ask','permissionDecisionReason':hit+' requires approval'}},sys.stdout)\n\" rm sudo kill pkill"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-The hook checks whether any keyword appears in the command or in any `.sh` file it references. To gate additional commands, append them to the end: `\" rm sudo kill pkill chmod mv`.
-
-When it decides to gate a command, the hook does two things: it returns `permissionDecision:"ask"` (so Claude Code shows the prompt) **and** it appends a synthetic `PermissionRequest` line to `$OCTO_HOOK_FILE`. That second write is the **status signal**: a hook-driven `ask` does **not** trigger Claude Code's own `PermissionRequest` hook (only the rule-based path does), so without it OctoCode would only see the matcherless `PreToolUse` and leave the agent flashing-green while it's actually parked at the prompt. The synthetic line makes the agent go solid-red (`need_input`) on the dashboard. This is belt-and-suspenders with the built-in `Notification` hook (which also catches the prompt): OctoCode's `need_input` edge is idempotent, so the two signals collapse to a single red edge — never a duplicate.
+The dashboard reads each agent's status directly from the Codex App Server, both for local agents and over SSH. No setup is needed: the working signal, approval waits, question prompts, and idle state — including activity from Codex subagents — update automatically.
 
 ### Multiple Sessions
 
