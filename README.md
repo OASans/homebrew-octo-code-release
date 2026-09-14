@@ -132,7 +132,7 @@ The voice control dashboard shows:
 - **Button bar** — Clear (F9), Undo (Ctrl+Z), Redo (Ctrl+Y), Reload (Ctrl+R), Quit (Ctrl+Q). All clickable.
 - **Pending command** — editable text area where voice transcripts appear before sending.
 - **In-dashboard status messages** — agent initialization, SSH reconnects, and errors; these are not operating-system notifications.
-- **System metrics** — audio device status, CPU/memory, IPC health, SSH health.
+- **Voice status** — loading, listening, recording, or transcribing, with Caps Lock recording control.
 
 ## Agent Status Bar
 
