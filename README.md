@@ -2,7 +2,7 @@
 
 Run multiple AI coding agents side by side and control them all with your voice.
 
-OctoCode is a terminal-based environment that manages multiple OpenAI Codex CLI agents in a single tmux session. You speak commands, OctoCode transcribes them with Whisper, and sends them to the agent you're looking at.
+OctoCode is a terminal-based environment that manages multiple OpenAI Codex CLI agents in a single tmux session. You speak commands, OctoCode transcribes them locally, and sends them to the agent you're looking at.
 
 ## Install
 
@@ -23,7 +23,7 @@ That's it. On first run, OctoCode:
 1. Creates a default config at `~/.octo-code/config.json` with 2 agents
 2. Starts a background daemon that manages a tmux session
 3. Opens a TUI with a voice control dashboard and agent panels
-4. Downloads the Whisper speech model (~1.5 GB, one-time)
+4. Downloads the Parakeet speech model (~714 MB, one-time)
 
 You'll see a grid: the **dashboard** on the left, and your **agent panels** filling the rest. Each agent panel has a status bar (top 2 rows) and the agent's CLI below it.
 
@@ -246,10 +246,9 @@ Each session gets its own tmux session (`octo-code-work`, `octo-code-personal`) 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `tabs` | array | *(required)* | Tabbed agent groups (at least 1 required) |
-| `noAudio` | bool | `false` | Skip audio/whisper/VAD initialization |
+| `noAudio` | bool | `false` | Skip audio/speech/VAD initialization |
 | `debug` | bool | `false` | Enable debug mode with file logging |
 | `sharedRemoteAgents` | bool | `false` | Attach to a healthy daemon for the same instance instead of replacing it when remote agent sessions are shared |
-| `prevFinalCarryChars` | integer | `0` | Characters from the previous final transcript used to seed the next transcription; `0` disables carry-over |
 | `commandSuffix` | string | `""` | Text appended to dashboard commands; slash and bang commands are sent unchanged |
 
 #### Tab
@@ -296,18 +295,18 @@ Flags for `stop`, `status`:
 |------|-------------|
 | `--instance <ID>` | Target a specific session (default: `default`) |
 
-### Whisper Model
+### Speech Model
 
-OctoCode uses the `distil-large-v3` Whisper model — English-only, optimized for streaming latency on Apple Silicon. The model (~1.5 GB) is downloaded automatically on first run to `~/.octo-code/models/`.
+OctoCode uses NVIDIA Parakeet TDT 0.6B v3. No model selection is needed. Its multilingual Q8_0 model (~714 MB) downloads automatically to `~/.octo-code/models/`; the download and cached model are verified against a pinned checksum. Audio stays on your machine.
+
+Parakeet decodes each completed speech segment independently.
 
 ### GPU Acceleration
 
-Whisper uses GPU automatically when available:
+- **macOS (Apple Silicon):** Parakeet uses Metal with the bundled native runtime.
+- **Linux / WSL2 (NVIDIA):** Parakeet builds with CUDA when the toolkit is installed; otherwise it builds for CPU. Run `scripts/install_dependencies.sh` for development dependencies.
 
-- **macOS (Apple Silicon):** Metal — works out of the box, no setup needed.
-- **Linux / WSL2 (NVIDIA):** CUDA — requires NVIDIA driver 470.76+ and CUDA toolkit.
-
-Without a GPU, Whisper runs on CPU. The `distil-large-v3` model benefits significantly from GPU acceleration.
+Model-load and decode errors are reported without silently switching speech models.
 
 ## Troubleshooting
 
@@ -327,7 +326,7 @@ Without a GPU, Whisper runs on CPU. The `distil-large-v3` model benefits signifi
 
 The release archive ships with a `release_docs/` folder containing deeper setup walkthroughs:
 
-- `release_docs/gpu-acceleration.md` — Enabling CUDA/Metal for Whisper on your machine.
+- `release_docs/gpu-acceleration.md` — Speech backends and CUDA/Metal setup.
 - `release_docs/wsl2-audio.md` — PulseAudio + ALSA wiring for WSL2 microphone capture.
 
 ## License
