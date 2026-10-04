@@ -109,12 +109,12 @@ Edit `~/.octo-code/config.json` to customize your setup. Press **Ctrl+R** to rel
         {
           "name": "frontend",
           "startCommand": "codex",
-          "projectPath": "/home/user/frontend"
+          "projectPath": "/Users/user/frontend"
         },
         {
           "name": "backend",
           "startCommand": "codex --full-auto",
-          "projectPath": "/home/user/backend"
+          "projectPath": "/Users/user/backend"
         }
       ]
     }
@@ -178,14 +178,14 @@ Organize agents into tabs when you have more than a few. Each tab is its own gri
     {
       "name": "frontend",
       "agentConfigs": [
-        { "name": "react app", "startCommand": "codex", "projectPath": "/home/user/frontend" }
+        { "name": "react app", "startCommand": "codex", "projectPath": "/Users/user/frontend" }
       ]
     },
     {
       "name": "backend",
       "agentConfigs": [
-        { "name": "api server", "startCommand": "codex", "projectPath": "/home/user/backend" },
-        { "name": "worker", "startCommand": "codex", "projectPath": "/home/user/worker" }
+        { "name": "api server", "startCommand": "codex", "projectPath": "/Users/user/backend" },
+        { "name": "worker", "startCommand": "codex", "projectPath": "/Users/user/worker" }
       ]
     }
   ]
@@ -304,17 +304,17 @@ Parakeet decodes each completed speech segment independently.
 ### GPU Acceleration
 
 - **macOS (Apple Silicon):** Parakeet uses Metal with the bundled native runtime.
-- **Linux / WSL2 (NVIDIA):** Parakeet builds with CUDA when the toolkit is installed; otherwise it builds for CPU. Run `scripts/install_dependencies.sh` for development dependencies.
+- **Intel macOS source builds:** Parakeet uses CPU. Published archives and Homebrew packages support Apple Silicon only.
 
 Model-load and decode errors are reported without silently switching speech models.
 
 ## Troubleshooting
 
-**"No audio device found"** — Check that your microphone is connected and accessible. On WSL2, ensure PulseAudio/WSLg audio is working.
+**"No audio device found"** — Check that your microphone is connected and accessible. Check macOS microphone permission for your terminal.
 
-**Caps Lock not detected** — On Linux, OctoCode tries sysfs, then X11, then WSL2 PowerShell. If none work, check your system's Caps Lock LED support.
+**Caps Lock not detected** — Check that macOS has not remapped Caps Lock to another key.
 
-**Transcription is slow** — Ensure GPU acceleration is active (Metal on macOS, CUDA on Linux).
+**Transcription is slow** — Apple Silicon builds use Metal; Intel Mac source builds use CPU.
 
 **Agent not responding to commands** — Make sure the agent is selected (highlighted in the agent monitor). Click its cell to select it.
 
@@ -326,8 +326,7 @@ Model-load and decode errors are reported without silently switching speech mode
 
 The release archive ships with a `release_docs/` folder containing deeper setup walkthroughs:
 
-- `release_docs/gpu-acceleration.md` — Speech backends and CUDA/Metal setup.
-- `release_docs/wsl2-audio.md` — PulseAudio + ALSA wiring for WSL2 microphone capture.
+- `release_docs/gpu-acceleration.md` — Mac speech backends and Metal/CPU builds.
 
 ## License
 
